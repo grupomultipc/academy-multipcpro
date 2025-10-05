@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Sistema de gestión para academia: alumnos, pagos, instructores. Backup/restore y reportes con gráficos." />
+  <title>Academia de Informática - Gestión (Con Gráficos)</title>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chart.js (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{--primary:#3498db;--secondary:#2c3e50;--success:#2ecc71;--danger:#e74c3c;--warning:#f39c12;--light:#ecf0f1;--dark:#34495e}
+    *{box-sizing:border-box;font-family:Inter, 'Segoe UI', system-ui, -apple-system, 'Segoe UI Emoji', Arial, sans-serif}
+    body{margin:0;background:#f5f7fa;color:#222;line-height:1.5}
+    .container{max-width:1200px;margin:0 auto;padding:20px}
+    header{background:linear-gradient(135deg,var(--secondary),var(--primary));color:#fff;padding:18px 0;margin-bottom:20px}
+    .header-content{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .logo{display:flex;align-items:center;gap:12px}
+    .logo i{font-size:26px}
+    .tabs{display:flex;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:18px}
+    .tab{flex:1;padding:12px 16px;text-align:center;cursor:pointer;font-weight:600;color:var(--secondary)}
+    .tab.active{background:var(--primary);color:#fff}
+    .card{background:#fff;border-radius:8px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:16px}
+    .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .btn{padding:10px 14px;border-radius:8px;border:0;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:8px}
+    .btn-primary{background:var(--primary);color:#fff}
+    .btn-success{background:var(--success);color:#fff}
+    .btn-danger{background:var(--danger);color:#fff}
+    .btn-warning{background:var(--warning);color:#fff}
+    .form-row{display:flex;gap:12px}
+    .form-group{flex:1;display:flex;flex-direction:column;gap:6px}
+    input,select,textarea{padding:10px;border-radius:8px;border:1px solid #e3e7eb;font-size:14px}
+    .table{width:100%;border-collapse:collapse}
+    .table th,.table td{padding:10px;border-bottom:1px solid #f1f1f1;text-align:left}
+    .table tr:hover{background:#fbfdff}
+    .photo-container{width:96px;height:96px;border-radius:8px;overflow:hidden;border:1px solid #eee;display:flex;align-items:center;justify-content:center;background:#fafafa}
+    .actions{display:flex;gap:8px}
+    .alert{padding:12px;border-radius:8px;margin-bottom:12px;display:none}
+    .alert.success{background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.2);color:var(--success)}
+    .alert.error{background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.12);color:var(--danger)}
+    .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px}
+    .summary-card{background:#fff;border-radius:8px;padding:12px;box-shadow:0 1px 6px rgba(0,0,0,.04);text-align:center}
+    .summary-card .value{font-size:1.6rem;font-weight:800}
+    @media (max-width:800px){.form-row{flex-direction:column}}
+  </style>
+</head>
+<body>
+  <header role="banner">
+    <div class="container">
+      <div class="header-content">
+        <div class="logo"><i class="fas fa-laptop-code"></i><div><h1 style="margin:0;font-size:18px">Academia de Informática</h1><small id="current-date" style="opacity:.9"></small></div></div>
+        <div>
+          <button class="btn btn-success" id="export-data-btn"><i class="fas fa-download"></i> Exportar</button>
+          <button class="btn btn-warning" id="import-data-btn"><i class="fas fa-upload"></i> Importar</button>
+          <input type="file" id="import-file" accept="application/json" style="display:none">
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" role="main">
+    <div id="alerts" aria-live="polite"></div>
+
+    <div class="card">
+      <div class="card-header"><h2 style="margin:0;font-size:16px">Gestión de Base de Datos</h2><div id="db-status" style="font-size:13px;opacity:.9"><i class="fas fa-database"></i> <span id="db-status-text">Conectando...</span></div></div>
+      <p style="margin:0 0 8px 0">Realice respaldos, restauraciones o restablezca datos de ejemplo.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="reset-db-btn"><i class="fas fa-trash-restore"></i> Restablecer (ejemplo)</button>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <div class="tab active" data-tab="students" role="tab">Alumnos</div>
+      <div class="tab" data-tab="payments" role="tab">Pagos</div>
+      <div class="tab" data-tab="instructors" role="tab">Instructores</div>
+      <div class="tab" data-tab="reports" role="tab">Reportes</div>
+    </div>
+
+    <!-- Students Tab -->
+    <section id="students" class="tab-content active" role="tabpanel">
+      <div class="card card-header"><div style="display:flex;align-items:center;gap:12px"><h3 style="margin:0;font-size:15px">Alumnos</h3><button class="btn btn-primary" id="new-student-btn"><i class="fas fa-plus"></i> Nuevo</button></div></div>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="display:flex;gap:8px;width:100%"><input id="student-search" placeholder="Buscar alumno, email o teléfono" style="flex:1;padding:10px;border-radius:8px;border:1px solid #e7eef7"><button class="btn btn-primary" id="student-search-btn"><i class="fas fa-search"></i> Buscar</button></div>
+        </div>
+
+        <div style="overflow:auto">
+          <table class="table" id="students-table" aria-describedby="students">
+            <thead>
+              <tr><th>Foto</th><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Curso</th><th>Estado</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="students-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" id="student-form-card" style="display:none">
+        <div class="card-header"><h3 id="student-form-title" style="margin:0;font-size:15px">Nuevo Alumno</h3><button class="btn btn-danger" id="cancel-student-btn"><i class="fas fa-times"></i> Cancelar</button></div>
+        <form id="student-form">
+          <input type="hidden" id="student-id">
+          <div class="form-row">
+            <div class="form-group" style="flex:0 0 120px">
+              <label for="student-photo">Foto</label>
+              <div class="photo-container"><img id="student-photo-preview" alt="preview" style="width:100%;height:100%;object-fit:cover;display:none"><div id="student-photo-placeholder" style="text-align:center;color:#999"><i class="fas fa-user fa-2x"></i><div>Sin foto</div></div></div>
+              <input type="file" id="student-photo" accept="image/*">
+            </div>
+            <div style="flex:1">
+              <div class="form-row">
+                <div class="form-group"><label for="student-name">Nombre *</label><input id="student-name" required></div>
+                <div class="form-group"><label for="student-lastname">Apellido *</label><input id="student-lastname" required></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label for="student-email">Email *</label><input type="email" id="student-email" required></div>
+                <div class="form-group"><label for="student-phone">Teléfono</label><input id="student-phone"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label for="student-course">Curso *</label><select id="student-course" required><option value="">Seleccione</option><option>Programación Básica</option><option>Desarrollo Web</option><option>Base de Datos</option><option>Python Avanzado</option><option>JavaScript Moderno</option></select></div>
+                <div class="form-group"><label for="student-status">Estado *</label><select id="student-status" required><option>Activo</option><option>Inactivo</option><option>Graduado</option></select></div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px"><button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Guardar</button></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Payments Tab -->
+    <section id="payments" class="tab-content" role="tabpanel" style="display:none">
+      <div class="card card-header"><div style="display:flex;align-items:center;gap:12px"><h3 style="margin:0;font-size:15px">Pagos</h3><button class="btn btn-primary" id="new-payment-btn"><i class="fas fa-plus"></i> Nuevo</button></div></div>
+
+      <div class="card">
+        <div class="summary-grid">
+          <div class="summary-card"><div>Total General</div><div class="value" id="total-general">$0.00</div></div>
+          <div class="summary-card"><div>Pagados</div><div class="value" id="total-paid">$0.00</div></div>
+          <div class="summary-card"><div>Pendientes</div><div class="value" id="total-pending">$0.00</div></div>
+          <div class="summary-card"><div>Vencidos</div><div class="value" id="total-overdue">$0.00</div></div>
+        </div>
+
+        <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <select id="filter-month"><option value="">Todos los meses</option>" +
+          "<option value=1>Enero</option><option value=2>Febrero</option><option value=3>Marzo</option><option value=4>Abril</option><option value=5>Mayo</option><option value=6>Junio</option><option value=7>Julio</option><option value=8>Agosto</option><option value=9>Septiembre</option><option value=10>Octubre</option><option value=11>Noviembre</option><option value=12>Diciembre</option></select>
+          <select id="filter-type"><option value="">Todos los tipos</option><option>Inscripción</option><option>Mensualidad</option><option>Materiales</option><option>Otros</option></select>
+          <select id="filter-status"><option value="">Todos los estados</option><option>Pagado</option><option>Pendiente</option><option>Vencido</option></select>
+          <button class="btn btn-primary" id="apply-filters-btn"><i class="fas fa-filter"></i> Aplicar</button>
+        </div>
+
+        <div style="overflow:auto">
+          <table class="table" id="payments-table"><thead><tr><th>Alumno</th><th>Tipo</th><th>Concepto</th><th>Mes</th><th>Monto</th><th>Fecha</th><th>Vencimiento</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="payments-table-body"></tbody></table>
+        </div>
+      </div>
+
+      <div class="card" id="payment-form-card" style="display:none">
+        <div class="card-header"><h3 id="payment-form-title" style="margin:0;font-size:15px">Nuevo Pago</h3><button class="btn btn-danger" id="cancel-payment-btn"><i class="fas fa-times"></i> Cancelar</button></div>
+        <form id="payment-form">
+          <input type="hidden" id="payment-id">
+          <div class="form-row">
+            <div class="form-group"><label>Alumno *</label><select id="payment-student" required><option value="">Seleccione un alumno</option></select></div>
+            <div class="form-group"><label>Tipo *</label><select id="payment-type" required><option value="">Seleccione</option><option>Inscripción</option><option>Mensualidad</option><option>Materiales</option><option>Otros</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Concepto *</label><input id="payment-concept" required></div>
+            <div class="form-group"><label>Mes</label><select id="payment-month"><option value="">No aplica</option><option value=1>Enero</option><option value=2>Febrero</option><option value=3>Marzo</option><option value=4>Abril</option><option value=5>Mayo</option><option value=6>Junio</option><option value=7>Julio</option><option value=8>Agosto</option><option value=9>Septiembre</option><option value=10>Octubre</option><option value=11>Noviembre</option><option value=12>Diciembre</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Monto *</label><input type="number" id="payment-amount" step="0.01" required></div>
+            <div class="form-group"><label>Fecha *</label><input type="date" id="payment-date" required></div>
+          </div>
+          <div style="margin-top:12px"><button class="btn btn-success" type="submit"><i class="fas fa-save"></i> Guardar Pago</button></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Instructors Tab -->
+    <section id="instructors" class="tab-content" role="tabpanel" style="display:none">
+      <div class="card card-header"><div style="display:flex;align-items:center;gap:12px"><h3 style="margin:0;font-size:15px">Instructores</h3><button class="btn btn-primary" id="new-instructor-btn"><i class="fas fa-plus"></i> Nuevo</button></div></div>
+      <div class="card">
+        <div style="margin-bottom:12px;display:flex;gap:8px"><input id="instructor-search" placeholder="Buscar instructor" style="flex:1;padding:10px;border-radius:8px;border:1px solid #e7eef7"><button class="btn btn-primary" id="instructor-search-btn"><i class="fas fa-search"></i> Buscar</button></div>
+        <div style="overflow:auto"><table class="table" id="instructors-table"><thead><tr><th>Foto</th><th>Nombre</th><th>Email</th><th>Especialidad</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="instructors-table-body"></tbody></table></div>
+      </div>
+
+      <div class="card" id="instructor-form-card" style="display:none">
+        <div class="card-header"><h3 id="instructor-form-title" style="margin:0;font-size:15px">Nuevo Instructor</h3><button class="btn btn-danger" id="cancel-instructor-btn"><i class="fas fa-times"></i> Cancelar</button></div>
+        <form id="instructor-form">
+          <input type="hidden" id="instructor-id">
+          <div class="form-row">
+            <div class="form-group"><label>Nombre *</label><input id="instructor-name" required></div>
+            <div class="form-group"><label>Apellido *</label><input id="instructor-lastname" required></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Email *</label><input type="email" id="instructor-email" required></div>
+            <div class="form-group"><label>Teléfono</label><input id="instructor-phone"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Especialidad *</label><input id="instructor-specialty" required></div>
+            <div class="form-group"><label>Estado *</label><select id="instructor-status"><option>Activo</option><option>Inactivo</option></select></div>
+          </div>
+          <div style="margin-top:12px"><button class="btn btn-success" type="submit"><i class="fas fa-save"></i> Guardar Instructor</button></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Reports Tab -->
+    <section id="reports" class="tab-content" role="tabpanel" style="display:none">
+      <div class="card"><h3 style="margin:0 0 12px 0">Reportes y Gráficos</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="card"><canvas id="payments-chart" height="200"></canvas></div>
+          <div class="card"><canvas id="students-chart" height="200"></canvas></div>
+        </div>
+        <div class="card"><canvas id="instructors-chart" height="120"></canvas></div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+  // ==================== CONFIG & DB ====================
+  const DB_NAME = 'AcademiaInformaticaDB'; const DB_VERSION = 1; let db = null;
+  const STORES = { STUDENTS: 'students', PAYMENTS: 'payments', INSTRUCTORS: 'instructors' };
+
+  const initialData = { students:[{id:1,name:'Juan',lastname:'Pérez',email:'juan.perez@email.com',phone:'123456',course:'Programación Básica',status:'Activo',photo:null},{id:2,name:'María',lastname:'González',email:'maria.gonzalez@email.com',phone:'987654',course:'Desarrollo Web',status:'Activo',photo:null}], payments:[{id:1,studentId:1,type:'Inscripción',concept:'Matrícula Programación',amount:150.00,date:'2023-01-15',status:'Pagado',dueDate:'2023-01-15',month:'',notes:''}], instructors:[{id:1,name:'Carlos',lastname:'Rodríguez',email:'carlos.rodriguez@academia.com',phone:'111222333',specialty:'Programación',status:'Activo',photo:null}] };
+
+  // ========== UTIL ALERTS & UI ==========
+  function showAlert(message,type='success',timeout=4000){const c=document.getElementById('alerts');const el=document.createElement('div');el.className='alert '+(type==='success'?'success':'error');el.textContent=message;c.appendChild(el);el.style.display='block';setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.remove(),400)},timeout)}
+
+  function formatCurrency(v){return '$'+Number(v||0).toFixed(2)}
+
+  // ========== INIT ==========
+  document.addEventListener('DOMContentLoaded',()=>{document.getElementById('current-date').textContent=new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'});initDatabase();setupUI();});
+
+  function initDatabase(){const req=indexedDB.open(DB_NAME,DB_VERSION);
+    req.onerror=e=>{console.error(e);updateDBStatus('Error al abrir la base de datos',true)};
+    req.onupgradeneeded=e=>{const database=e.target.result; if(!database.objectStoreNames.contains(STORES.STUDENTS)){const s=database.createObjectStore(STORES.STUDENTS,{keyPath:'id',autoIncrement:true});s.createIndex('email','email',{unique:true})} if(!database.objectStoreNames.contains(STORES.PAYMENTS)){const p=database.createObjectStore(STORES.PAYMENTS,{keyPath:'id',autoIncrement:true});p.createIndex('studentId','studentId',{unique:false})} if(!database.objectStoreNames.contains(STORES.INSTRUCTORS)){const i=database.createObjectStore(STORES.INSTRUCTORS,{keyPath:'id',autoIncrement:true});i.createIndex('email','email',{unique:true})}};
+    req.onsuccess=e=>{db=e.target.result;updateDBStatus('Conectado correctamente');loadAllData().catch(err=>{console.error(err);showAlert('Error al cargar datos: '+err.message,'error')})};
+  }
+
+  function updateDBStatus(msg,isError=false){const el=document.getElementById('db-status-text');el.textContent=msg;document.getElementById('db-status').classList.toggle('error',isError)}
+
+  // ========== CRUD helpers (Promises) ==========
+  function tx(storeName,mode='readonly'){return db.transaction([storeName],mode).objectStore(storeName)}
+  function getAll(storeName){return new Promise((res,rej)=>{const r=tx(storeName,'readonly').getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+  function add(storeName,item){return new Promise((res,rej)=>{const r=tx(storeName,'readwrite').add(item);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+  function put(storeName,item){return new Promise((res,rej)=>{const r=tx(storeName,'readwrite').put(item);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+  function del(storeName,key){return new Promise((res,rej)=>{const r=tx(storeName,'readwrite').delete(key);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+
+  // ========== DATA LOAD & INITIALIZE ==========
+  async function loadAllData(){const [students,payments,instructors]=await Promise.all([getAll(STORES.STUDENTS),getAll(STORES.PAYMENTS),getAll(STORES.INSTRUCTORS)]);
+    if(students.length===0 && payments.length===0 && instructors.length===0){await loadInitialData();return loadAllData()}
+    renderStudentsTable(students);renderPaymentsTable(payments,students);renderInstructorsTable(instructors);updatePaymentSummary(payments);populateStudentSelect(students);updateCharts();}
+
+  async function loadInitialData(){for(const s of initialData.students) await add(STORES.STUDENTS,s);for(const p of initialData.payments) await add(STORES.PAYMENTS,p);for(const i of initialData.instructors) await add(STORES.INSTRUCTORS,i);showAlert('Datos de ejemplo cargados','success')}
+
+  // ========== EXPORT / IMPORT / RESET ==========
+  async function exportData(){const [students,payments,instructors]=await Promise.all([getAll(STORES.STUDENTS),getAll(STORES.PAYMENTS),getAll(STORES.INSTRUCTORS)]);const payload={students,payments,instructors,exportDate:new Date().toISOString(),version:'1.0'};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`academia_backup_${new Date().toISOString().split('T')[0]}.json`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);showAlert('Exportado correctamente')}
+
+  function handleImportFile(file){const reader=new FileReader();reader.onload=async(e)=>{try{const data=JSON.parse(e.target.result);if(!data.students||!data.payments||!data.instructors) throw new Error('Formato inválido'); if(data.version && data.version!=='1.0'){if(!confirm('Versión de backup distinta. Desea intentar importar?')) return} await clearDatabase(); for(const s of data.students) await add(STORES.STUDENTS,s); for(const p of data.payments) await add(STORES.PAYMENTS,p); for(const i of data.instructors) await add(STORES.INSTRUCTORS,i); await loadAllData(); showAlert('Importado correctamente','success')}catch(err){console.error(err);showAlert('Error al importar: '+err.message,'error')}};reader.onerror=()=>showAlert('No se pudo leer el archivo','error');reader.readAsText(file)}
+
+  async function clearDatabase(){const students=await getAll(STORES.STUDENTS);for(const s of students) await del(STORES.STUDENTS,s.id);const payments=await getAll(STORES.PAYMENTS);for(const p of payments) await del(STORES.PAYMENTS,p.id);const instructors=await getAll(STORES.INSTRUCTORS);for(const i of instructors) await del(STORES.INSTRUCTORS,i.id)}
+
+  // ========== UI SETUP ==========
+  function setupUI(){document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');t.classList.add('active');document.getElementById(t.dataset.tab).style.display='block'}));
+    document.getElementById('export-data-btn').addEventListener('click',exportData);
+    document.getElementById('import-data-btn').addEventListener('click',()=>document.getElementById('import-file').click());
+    document.getElementById('import-file').addEventListener('change',e=>{if(e.target.files.length) handleImportFile(e.target.files[0]);e.target.value=''});
+    document.getElementById('reset-db-btn').addEventListener('click',async()=>{if(confirm('¿Restablecer datos de ejemplo? esta acción reemplazará los datos actuales.')){await clearDatabase();await loadInitialData();await loadAllData();}});
+
+    // Students
+    document.getElementById('new-student-btn').addEventListener('click',()=>{showStudentForm();});
+    document.getElementById('cancel-student-btn').addEventListener('click',()=>hideStudentForm());
+    document.getElementById('student-form').addEventListener('submit',onSaveStudent);
+    document.getElementById('student-photo').addEventListener('change',previewStudentPhoto);
+    document.getElementById('student-search-btn').addEventListener('click',async()=>{const q=document.getElementById('student-search').value.toLowerCase();const students=await getAll(STORES.STUDENTS);renderStudentsTable(students.filter(s=> (s.name+s.lastname+s.email+(s.phone||'')).toLowerCase().includes(q)))});
+
+    // Payments
+    document.getElementById('new-payment-btn').addEventListener('click',()=>showPaymentForm());
+    document.getElementById('cancel-payment-btn').addEventListener('click',()=>hidePaymentForm());
+    document.getElementById('payment-form').addEventListener('submit',onSavePayment);
+
+    // Instructors
+    document.getElementById('new-instructor-btn').addEventListener('click',()=>showInstructorForm());
+    document.getElementById('cancel-instructor-btn').addEventListener('click',()=>hideInstructorForm());
+    document.getElementById('instructor-form').addEventListener('submit',onSaveInstructor);
+  }
+
+  // ========== STUDENTS UI & CRUD ==========
+  function renderStudentsTable(students){const body=document.getElementById('students-table-body');body.innerHTML='';students.forEach(s=>{const tr=document.createElement('tr');const photoCell=document.createElement('td');const img=document.createElement('img');img.style.width='48px';img.style.height='48px';img.style.objectFit='cover';img.style.borderRadius='6px';img.src=s.photo||''; if(!s.photo){photoCell.innerHTML='<div style="width:48px;height:48px;background:#f3f7fb;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#999"><i class="fas fa-user"></i></div>'} else photoCell.appendChild(img);
+    tr.appendChild(photoCell);
+    tr.innerHTML += `<td>${escapeHtml(s.name)} ${escapeHtml(s.lastname)}</td><td>${escapeHtml(s.email)}</td><td>${escapeHtml(s.phone||'')}</td><td>${escapeHtml(s.course||'')}</td><td>${escapeHtml(s.status||'')}</td>`;
+    const actions=document.createElement('td');actions.className='actions';
+    const edit=document.createElement('button');edit.className='btn btn-primary';edit.innerHTML='<i class="fas fa-edit"></i>';edit.addEventListener('click',()=>editStudent(s.id));
+    const delBtn=document.createElement('button');delBtn.className='btn btn-danger';delBtn.innerHTML='<i class="fas fa-trash"></i>';delBtn.addEventListener('click',async()=>{if(confirm('Eliminar alumno?')){await del(STORES.STUDENTS,s.id);showAlert('Alumno eliminado','success');await loadAllData()}});
+    actions.appendChild(edit);actions.appendChild(delBtn);tr.appendChild(actions);body.appendChild(tr)})}
+
+  function showStudentForm(student){document.getElementById('student-form-card').style.display='block';document.getElementById('students').scrollIntoView({behavior:'smooth'});if(student){document.getElementById('student-form-title').textContent='Editar Alumno';document.getElementById('student-id').value=student.id;document.getElementById('student-name').value=student.name;document.getElementById('student-lastname').value=student.lastname;document.getElementById('student-email').value=student.email;document.getElementById('student-phone').value=student.phone||'';document.getElementById('student-course').value=student.course||'';document.getElementById('student-status').value=student.status||'Activo';if(student.photo){document.getElementById('student-photo-preview').src=student.photo;document.getElementById('student-photo-preview').style.display='block';document.getElementById('student-photo-placeholder').style.display='none'} }else{document.getElementById('student-form-title').textContent='Nuevo Alumno';document.getElementById('student-form').reset();document.getElementById('student-id').value='';document.getElementById('student-photo-preview').style.display='none';document.getElementById('student-photo-placeholder').style.display='block'}}
+  function hideStudentForm(){document.getElementById('student-form-card').style.display='none'}
+
+  async function onSaveStudent(e){e.preventDefault();const id=document.getElementById('student-id').value;const name=document.getElementById('student-name').value.trim();const lastname=document.getElementById('student-lastname').value.trim();const email=document.getElementById('student-email').value.trim();const phone=document.getElementById('student-phone').value.trim();const course=document.getElementById('student-course').value;const status=document.getElementById('student-status').value; if(!name||!lastname||!email||!course){showAlert('Complete los campos obligatorios','error');return}
+    // check duplicate email
+    const students=await getAll(STORES.STUDENTS);const existing=students.find(s=>s.email===email && String(s.id)!==String(id));if(existing){showAlert('Ya existe un alumno con este correo','error');return}
+    const photo = document.getElementById('student-photo-preview').src||null;
+    const studentObj={name,lastname,email,phone,course,status,photo};
+    try{ if(id){studentObj.id=Number(id);await put(STORES.STUDENTS,studentObj);showAlert('Alumno actualizado','success')}else{await add(STORES.STUDENTS,studentObj);showAlert('Alumno creado','success')} await loadAllData(); hideStudentForm(); }catch(err){console.error(err);showAlert('Error al guardar: '+err.message,'error')}
+  }
+
+  function previewStudentPhoto(e){const f=e.target.files[0];if(!f) return;const r=new FileReader();r.onload=()=>{document.getElementById('student-photo-preview').src=r.result;document.getElementById('student-photo-preview').style.display='block';document.getElementById('student-photo-placeholder').style.display='none'};r.readAsDataURL(f)}
+
+  async function editStudent(id){const students=await getAll(STORES.STUDENTS);const s=students.find(x=>x.id===id);if(s) showStudentForm(s)}
+
+  // ========== PAYMENTS UI & CRUD ==========
+  function renderPaymentsTable(payments,students){const body=document.getElementById('payments-table-body');body.innerHTML='';payments.forEach(p=>{const tr=document.createElement('tr');const student=students.find(s=>s.id===p.studentId);tr.innerHTML=`<td>${escapeHtml(student?student.name+' '+student.lastname:'-')}</td><td>${escapeHtml(p.type)}</td><td>${escapeHtml(p.concept)}</td><td>${escapeHtml(p.month||'')}</td><td>${formatCurrency(p.amount)}</td><td>${escapeHtml(p.date)}</td><td>${escapeHtml(p.dueDate||'')}</td><td>${escapeHtml(p.status)}</td>`;const actions=document.createElement('td');actions.className='actions';const delBtn=document.createElement('button');delBtn.className='btn btn-danger';delBtn.innerHTML='<i class="fas fa-trash"></i>';delBtn.addEventListener('click',async()=>{if(confirm('Eliminar pago?')){await del(STORES.PAYMENTS,p.id);showAlert('Pago eliminado','success');await loadAllData()}});actions.appendChild(delBtn);tr.appendChild(actions);body.appendChild(tr)})}
+
+  function showPaymentForm(payment){document.getElementById('payment-form-card').style.display='block';populateStudentSelect();if(payment){document.getElementById('payment-id').value=payment.id;document.getElementById('payment-concept').value=payment.concept;document.getElementById('payment-amount').value=payment.amount;document.getElementById('payment-date').value=payment.date;document.getElementById('payment-type').value=payment.type}}
+  function hidePaymentForm(){document.getElementById('payment-form-card').style.display='none'}
+
+  async function onSavePayment(e){e.preventDefault();const id=document.getElementById('payment-id').value;const studentId=Number(document.getElementById('payment-student').value);const type=document.getElementById('payment-type').value;const concept=document.getElementById('payment-concept').value.trim();const month=document.getElementById('payment-month').value;const amount=Number(document.getElementById('payment-amount').value);const date=document.getElementById('payment-date').value; if(!studentId||!type||!concept||!amount||!date){showAlert('Complete los campos obligatorios del pago','error');return}
+    const paymentObj={studentId,type,concept,month,amount,date,status:'Pagado',dueDate:date};try{if(id){paymentObj.id=Number(id);await put(STORES.PAYMENTS,paymentObj);showAlert('Pago actualizado','success')}else{await add(STORES.PAYMENTS,paymentObj);showAlert('Pago creado','success')} await loadAllData(); hidePaymentForm();}catch(err){console.error(err);showAlert('Error al guardar pago: '+err.message,'error')}}
+
+  function populateStudentSelect(students){return getAll(STORES.STUDENTS).then(list=>{const sel=document.getElementById('payment-student');sel.innerHTML='<option value="">Seleccione un alumno</option>';list.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name+' '+s.lastname;sel.appendChild(o)});return list})}
+
+  function updatePaymentSummary(payments){const total=payments.reduce((a,b)=>a+Number(b.amount||0),0);const paid=payments.filter(p=>p.status==='Pagado').reduce((a,b)=>a+Number(b.amount||0),0);const pending=payments.filter(p=>p.status==='Pendiente').reduce((a,b)=>a+Number(b.amount||0),0);const overdue=payments.filter(p=>p.status==='Vencido').reduce((a,b)=>a+Number(b.amount||0),0);document.getElementById('total-general').textContent=formatCurrency(total);document.getElementById('total-paid').textContent=formatCurrency(paid);document.getElementById('total-pending').textContent=formatCurrency(pending);document.getElementById('total-overdue').textContent=formatCurrency(overdue)}
+
+  // ========== INSTRUCTORS UI & CRUD ==========
+  function renderInstructorsTable(instructors){const body=document.getElementById('instructors-table-body');body.innerHTML='';instructors.forEach(i=>{const tr=document.createElement('tr');const photoCell=document.createElement('td');photoCell.innerHTML='<div style="width:48px;height:48px;background:#f3f7fb;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#999"><i class="fas fa-user-tie"></i></div>';tr.appendChild(photoCell);tr.innerHTML += `<td>${escapeHtml(i.name)} ${escapeHtml(i.lastname)}</td><td>${escapeHtml(i.email)}</td><td>${escapeHtml(i.specialty||'')}</td><td>${escapeHtml(i.status||'')}</td>`;const actions=document.createElement('td');actions.className='actions';const delBtn=document.createElement('button');delBtn.className='btn btn-danger';delBtn.innerHTML='<i class="fas fa-trash"></i>';delBtn.addEventListener('click',async()=>{if(confirm('Eliminar instructor?')){await del(STORES.INSTRUCTORS,i.id);showAlert('Instructor eliminado','success');await loadAllData()}});actions.appendChild(delBtn);tr.appendChild(actions);body.appendChild(tr)})}
+
+  function showInstructorForm(instructor){document.getElementById('instructor-form-card').style.display='block';if(instructor){document.getElementById('instructor-id').value=instructor.id;document.getElementById('instructor-name').value=instructor.name;document.getElementById('instructor-lastname').value=instructor.lastname;document.getElementById('instructor-email').value=instructor.email;document.getElementById('instructor-specialty').value=instructor.specialty;document.getElementById('instructor-status').value=instructor.status}else document.getElementById('instructor-form').reset()}
+
+  async function onSaveInstructor(e){e.preventDefault();const id=document.getElementById('instructor-id').value;const name=document.getElementById('instructor-name').value.trim();const lastname=document.getElementById('instructor-lastname').value.trim();const email=document.getElementById('instructor-email').value.trim();const specialty=document.getElementById('instructor-specialty').value;const status=document.getElementById('instructor-status').value;if(!name||!lastname||!email||!specialty){showAlert('Complete los campos obligatorios','error');return}
+    const instructors=await getAll(STORES.INSTRUCTORS);const existing=instructors.find(i=>i.email===email && String(i.id)!==String(id));if(existing){showAlert('Ya existe un instructor con este correo','error');return}
+    const obj={name,lastname,email,specialty,status};try{if(id){obj.id=Number(id);await put(STORES.INSTRUCTORS,obj);showAlert('Instructor actualizado','success')}else{await add(STORES.INSTRUCTORS,obj);showAlert('Instructor creado','success')}await loadAllData();document.getElementById('instructor-form-card').style.display='none'}catch(err){console.error(err);showAlert('Error al guardar instructor: '+err.message,'error')}}
+
+  // ========== CHARTS & REPORTS ==========
+  let paymentsChart=null, studentsChart=null, instructorsChart=null;
+  function updateCharts(){Promise.all([getAll(STORES.PAYMENTS),getAll(STORES.STUDENTS),getAll(STORES.INSTRUCTORS)]).then(([payments,students,instructors])=>{
+      // Payments chart: Pagados / Pendientes / Vencidos counts
+      const statusCounts={Pagado:0,Pendiente:0,Vencido:0};payments.forEach(p=>statusCounts[p.status] = (statusCounts[p.status]||0)+1);
+      const ctxPayments=document.getElementById('payments-chart').getContext('2d'); if(paymentsChart) paymentsChart.destroy(); paymentsChart=new Chart(ctxPayments,{type:'doughnut',data:{labels:['Pagados','Pendientes','Vencidos'],datasets:[{data:[statusCounts['Pagado']||0,statusCounts['Pendiente']||0,statusCounts['Vencido']||0],backgroundColor:['#2ecc71','#f39c12','#e74c3c']}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+      // Students by course
+      const byCourse={};students.forEach(s=>byCourse[s.course]=(byCourse[s.course]||0)+1);const ctxStudents=document.getElementById('students-chart').getContext('2d'); if(studentsChart) studentsChart.destroy(); studentsChart=new Chart(ctxStudents,{type:'bar',data:{labels:Object.keys(byCourse),datasets:[{label:'Alumnos por curso',data:Object.values(byCourse)}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+      // Instructors active vs inactive
+      const active=instructors.filter(i=>i.status==='Activo').length; const inactive=instructors.length-active; const ctxInstructors=document.getElementById('instructors-chart').getContext('2d'); if(instructorsChart) instructorsChart.destroy(); instructorsChart=new Chart(ctxInstructors,{type:'pie',data:{labels:['Activos','Inactivos'],datasets:[{data:[active,inactive],backgroundColor:['#3498db','#95a5a6']}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+    }).catch(err=>console.error(err));}
+
+  // ========== HELPERS ==========
+  function escapeHtml(s){if(s==null) return '';return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}
+
+  // ========== INITIALIZATION ACTIONS ==========
+  // Load data and attach utility listeners
+  async function loadAndAttach(){await loadAllData();}
+
+  // Trigger initial load (if DB already ready the loadAllData call inside initDatabase will run)
+  
+  // ========= EXPORT/IMPORT BUTTONS ==========
+  // Handled in setupUI
+
+  // Small safety: if user tries to close while importing/exporting we won't block but could warn if needed.
+
+  </script>
+</body>
+</html>
