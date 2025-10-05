@@ -1,0 +1,71 @@
+{
+  "students": [
+    {
+      "id": 1,
+      "name": "Juan",
+      "lastname": "Pérez",
+      "email": "juan.perez@email.com",
+      "phone": "123-456-7890",
+      "course": "Programación Básica",
+      "status": "Activo",
+      "address": "Calle Falsa 123",
+      "enrollmentDate": "2023-01-15",
+      "birthdate": "2000-05-20",
+      "photo": null
+    },
+    {
+      "id": 2,
+      "name": "María",
+      "lastname": "González",
+      "email": "maria.gonzalez@email.com",
+      "phone": "098-765-4321",
+      "course": "Desarrollo Web",
+      "status": "Activo",
+      "address": "Avenida Siempre Viva 456",
+      "enrollmentDate": "2023-02-10",
+      "birthdate": "1999-08-12",
+      "photo": null
+    }
+  ],
+  "payments": [
+    {
+      "id": 1,
+      "studentId": 1,
+      "type": "Inscripción",
+      "concept": "Matrícula Curso Programación",
+      "amount": 150,
+      "date": "2023-01-15",
+      "status": "Pagado",
+      "dueDate": "2023-01-15",
+      "month": "",
+      "notes": "Pago completo"
+    },
+    {
+      "id": 2,
+      "studentId": 2,
+      "type": "Inscripción",
+      "concept": "Matrícula Curso Desarrollo Web",
+      "amount": 150,
+      "date": "2023-02-10",
+      "status": "Pagado",
+      "dueDate": "2023-02-10",
+      "month": "",
+      "notes": "Pago completo"
+    }
+  ],
+  "instructors": [
+    {
+      "id": 1,
+      "name": "Carlos",
+      "lastname": "Rodríguez",
+      "email": "carlos.rodriguez@academia.com",
+      "phone": "111-222-3333",
+      "specialty": "Programación",
+      "status": "Activo",
+      "bio": "Ingeniero en Sistemas con 10 años de experiencia",
+      "photo": null
+    }
+  ],
+  "exportDate": "2025-10-05T05:33:37.785Z",
+  "version": "1.0"
+}
